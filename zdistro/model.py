@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
-import platform
+import sys
 import re
 import shutil
 import stat
@@ -20,7 +20,13 @@ class DistroError(RuntimeError):
 
 
 def host_name():
-    return {"Linux": "linux", "Darwin": "macos", "Windows": "windows"}.get(platform.system(), platform.system().lower())
+    if sys.platform.startswith("linux"):
+        return "linux"
+    if sys.platform == "darwin":
+        return "macos"
+    if sys.platform.startswith("win"):
+        return "windows"
+    return sys.platform
 
 
 def digest(path):
