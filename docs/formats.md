@@ -21,8 +21,8 @@ before file staging; cross compilation remains a language-toolchain setting.
 | `dmg` | macOS `hdiutil` | Image integrity and format inspection without mounting |
 | `msi` | Windows WiX 4+ CLI | Native MSI database decompilation |
 | `msix` | Windows SDK MakeAppx | ZIP/block-map metadata and native unpack |
-| `apk` | Android AAPT2 + platform `android.jar`, or existing Gradle project | Binary manifest/resources parsed by AAPT2 |
-| `aab` | Existing Gradle Android project, Java and bundletool | Bundle module validation by bundletool |
+| `apk` | Android AAPT2 + platform `android.jar`, or existing Gradle project | AAPT2 parsing and actual application ID/version matching |
+| `aab` | AAPT2 or Gradle project, Java and bundletool | Bundle module validation and actual manifest identity/version matching |
 | `docker` | Docker Buildx or Podman | Docker/OCI archive references and OCI blob digests/sizes |
 
 These are artifact checks. Installation/upgrade behavior, application behavior,
@@ -105,6 +105,13 @@ See [MakeAppx](https://learn.microsoft.com/en-us/windows/msix/package/create-app
 
 ## Android
 
+Android receipts record the actual `application_id`, `version_name`, and
+`version_code` read from the artifact. `targets.apk` / `targets.aab` can set these
+expected values explicitly; application ID otherwise uses the explicitly declared
+`package.identifier`, and version name uses `package.version`. A mismatch fails
+the build and re-verification. This also checks independently configured Gradle
+application IDs and flavors; the package display name is never used to guess an ID.
+
 The APK template builds a small no-code Android package with AAPT2 and an
 installed SDK platform. For an existing Android app, select `mode = "gradle"`,
 point `project` at its source, and declare the task and relative output artifact.
@@ -112,10 +119,15 @@ The Gradle wrapper must be complete. SDK paths come from `ANDROID_HOME` or
 `ANDROID_SDK_ROOT`; `platform = "android-35"` can choose an installed platform.
 No SDK is downloaded or configured by zdistro.
 
-AAB uses the existing Gradle project and validates its output with bundletool.
+AAB can link the manifest/resources as protobuf through AAPT2, assemble the
+standard base-module ZIP layout, and call bundletool build-bundle. Existing
+Gradle apps can use mode = "gradle" with a task and output path. Both routes
+validate the resulting bundle with bundletool.
 Provide `bundletool_jar` or the `BUNDLETOOL_JAR` environment variable. Missing
 Gradle projects, tools and SDK components are reported by doctor. The checked-in
-CI records an explicit AAB prerequisite gate. See [Android command-line builds](https://developer.android.com/build/building-cmdline),
+CI reuses its existing SDK and provisions a pinned, checksum-verified bundletool
+JAR in the workspace. It builds actual APK/AAB artifacts and records prerequisite
+checks; the contract tests also exercise the missing-SDK failure. See [Android command-line builds](https://developer.android.com/build/building-cmdline),
 [AAPT2](https://developer.android.com/tools/aapt2) and
 [bundletool](https://developer.android.com/tools/bundletool).
 
@@ -128,8 +140,8 @@ a unique local image, saves the selected archive format and removes only that
 build's unique tag. No image is pushed to a registry by the backend.
 
 Verification follows archive references and validates SHA-256/size for
-recursively referenced OCI blobs. Docker image archives are checked for a valid
-manifest, configuration and referenced layer files. See [Docker exporters](https://docs.docker.com/build/exporters/),
+recursively referenced OCI blobs using bounded reads. Docker image archives
+are checked for a valid manifest, configuration and uncompressed layer digests. See [Docker exporters](https://docs.docker.com/build/exporters/),
 [Docker save](https://docs.docker.com/reference/cli/docker/image/save/) and the
 [OCI image layout](https://github.com/opencontainers/image-spec/blob/main/image-layout.md).
 

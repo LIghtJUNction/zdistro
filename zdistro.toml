@@ -1,0 +1,48 @@
+schema = 1
+source_date_epoch = 1700000000
+
+[package]
+name = "zdistro"
+version = "0.1.0"
+description = "Unified native packaging and verified delivery matrices"
+maintainer = "LIghtJUNction"
+license = "MIT"
+homepage = "https://github.com/LIghtJUNction/zdistro"
+identifier = "dev.projectz.zdistro"
+
+[build]
+kind = "command"
+commands = [["{python}", "{project}/scripts/build_zipapp.py", "{build}/zdistro.pyz"]]
+
+[[files]]
+source = "{build}/zdistro.pyz"
+destination = "usr/bin/zdistro"
+mode = "0755"
+
+[[files]]
+source = "LICENSE"
+destination = "usr/share/licenses/zdistro/LICENSE"
+
+[targets.deb]
+architecture = "all"
+depends = ["python3 (>= 3.11)"]
+
+[targets.arch]
+architecture = "any"
+release = "1"
+depends = ["python>=3.11"]
+
+[targets.zip]
+files = [
+  {source = "{build}/zdistro.pyz", destination = "zdistro.pyz", mode = "0755"},
+  {source = "README.md", destination = "README.md"},
+  {source = "LICENSE", destination = "LICENSE"},
+]
+
+[targets.wheel]
+project = "."
+files = []
+
+[targets.sdist]
+project = "."
+files = []

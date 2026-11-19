@@ -58,6 +58,10 @@ zdistro matrix --manifest demo/zdistro.toml \
 
 本项目使用的样例验收入口是 `tests/native_smoke.py`。三平台 CI 上传实际包、收据、SDK 检查结果和矩阵，见 [Actions](https://github.com/LIghtJUNction/zdistro/actions)。产物校验、安装测试、签名和商店提交分别记录，矩阵展示产物校验范围。
 
+![Linux packaging acceptance snapshot](docs/packaging.svg)
+
+上图是本机实际产物校验时生成的快照，数据见 [packaging.json](docs/packaging.json)。其他系统的正式构建证据在 Actions 制品中；这个 Linux 快照不会把其他系统的工具适配标成已经实测。
+
 ## 统一模板
 
 ```toml
@@ -115,6 +119,8 @@ verify = [["my-package-check", "{artifact}"]]
 
 把配方中的工具换成该生态实际使用的构建器和验证器即可。两组命令都必填；命令失败、产物缺失或为空都会结束构建。参数按数组传递；占位符包括 `{python}`、`{project}`、`{stage}`、`{build}`、`{work}`、`{out}`、`{artifact}`、`{name}` 和 `{version}`。模板和构建脚本是可执行的项目配置，应在 `plan` 中审阅后运行。
 
+独立 `verify` 会按原来的 `targets.<target>.project` / `build.project` 重新复制配方项目；`{work}`、`{build}`、`{stage}` 是新的临时目录，先前的中间产物不会恢复。验证命令应检查 `{artifact}`，需要的辅助脚本放在 `{project}` 中。
+
 具体原生工具、格式规则和官方来源见 [格式指南](docs/formats.md)。
 
 ## 开发与验收
@@ -124,7 +130,14 @@ python -m unittest discover -s tests -v
 python tests/native_smoke.py --targets deb,arch,zip,tar-gz
 ```
 
-测试覆盖路径和文件映射、真实归档、扩展资源引用、配方产物/验证契约、收据篡改、配置变更失效、可重复 ZIP 和矩阵状态。原生 CI 负责 Linux Deb/Arch、macOS PKG/DMG、Windows MSI/MSIX，以及使用现有 SDK 的 Android APK 检查。SDK 或工具缺失会显示具体前置条件。
+测试覆盖路径和文件映射、真实归档、扩展资源引用、配方产物/验证契约、嵌套项目重验、收据篡改、配置变更失效、可重复 ZIP 和矩阵状态。原生构建工作流负责 Linux Deb/Arch、macOS PKG/DMG、Windows MSI/MSIX，以及使用现有 SDK 的 Android APK/AAB 检查。Android 还检查真实应用标识和版本，拒绝版本不符的有效 APK。SDK 或工具缺失会显示具体前置条件。
+
+日常修改在本机验收；GitHub 工作流仅用于显式启动或版本标签触发的正式原生制品构建。仓库自身的 `zdistro.toml` 可生成 zdistro 的 wheel、sdist、可运行 zipapp、Deb 和 Arch 包：
+
+```sh
+python -m pip install build
+python -m zdistro build --manifest zdistro.toml --target wheel,sdist,zip
+```
 
 本项目属于 [Project Z](https://github.com/LIghtJUNction/project-z)。公共接口或依赖变更按反向依赖传播：维护者负责协调、更新并验证直接及间接消费者，再提交相关变更。
 

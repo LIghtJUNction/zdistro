@@ -18,6 +18,7 @@ from .model import DistroError, relative_path
 
 
 def zip_contents(path):
+    archive = None
     try:
         archive = zipfile.ZipFile(path)
         names = archive.namelist()
@@ -29,11 +30,16 @@ def zip_contents(path):
         if bad is not None:
             raise DistroError(f"ZIP checksum failed: {bad}")
         return archive
-    except (OSError, zipfile.BadZipFile, RuntimeError) as error:
+    except Exception as error:
+        if archive is not None:
+            archive.close()
+        if isinstance(error, DistroError):
+            raise
         raise DistroError(f"invalid ZIP artifact: {error}") from error
 
 
 def tar_contents(path):
+    archive = None
     try:
         archive = tarfile.open(path, "r:*")
         for member in archive.getmembers():
@@ -43,7 +49,11 @@ def tar_contents(path):
             elif not (member.isfile() or member.isdir()):
                 raise DistroError(f"unexpected archive device or special entry: {member.name}")
         return archive
-    except (OSError, tarfile.TarError) as error:
+    except Exception as error:
+        if archive is not None:
+            archive.close()
+        if isinstance(error, DistroError):
+            raise
         raise DistroError(f"invalid tar artifact: {error}") from error
 
 
@@ -54,6 +64,17 @@ def read_tar(archive, name):
             raise DistroError(f"not a regular archive file: {name}")
         with stream:
             return stream.read()
+    except KeyError as error:
+        raise DistroError(f"missing archive member: {name}") from error
+
+
+def tar_digest(archive, name):
+    try:
+        member = archive.getmember(name)
+        if not member.isfile():
+            raise DistroError(f"not a regular archive file: {name}")
+        with archive.extractfile(member) as stream:
+            return member.size, hashlib.file_digest(stream, "sha256").hexdigest()
     except KeyError as error:
         raise DistroError(f"missing archive member: {name}") from error
 
@@ -141,9 +162,10 @@ def verify_portable(kind, path, package):
                     algorithm, _, encoded = hash_field.partition("=")
                     if algorithm not in ("sha256", "sha384", "sha512"):
                         raise DistroError("wheel RECORD must use a supported strong digest")
-                    content = archive.read(member)
-                    actual = base64.urlsafe_b64encode(hashlib.new(algorithm, content).digest()).decode().rstrip("=")
-                    if encoded != actual or size != str(len(content)):
+                    with archive.open(member) as stream:
+                        member_digest = hashlib.file_digest(stream, algorithm).digest()
+                    actual = base64.urlsafe_b64encode(member_digest).decode().rstrip("=")
+                    if encoded != actual or size != str(archive.getinfo(member).file_size):
                         raise DistroError(f"wheel RECORD integrity failed: {member}")
                 if set(item for item in names if not item.endswith("/")) != recorded:
                     raise DistroError("wheel contains files absent from RECORD")
@@ -202,12 +224,13 @@ def verify_image_archive(archive):
             seen.add(digest)
             if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
                 raise DistroError("OCI verification currently requires SHA-256 descriptors")
-            raw = read_tar(archive, "blobs/sha256/" + digest.split(":")[1])
-            if hashlib.sha256(raw).hexdigest() != digest.split(":")[1] or len(raw) != descriptor.get("size"):
+            blob = "blobs/sha256/" + digest.split(":")[1]
+            size, checksum = tar_digest(archive, blob)
+            if checksum != digest.split(":")[1] or size != descriptor.get("size"):
                 raise DistroError("OCI descriptor digest or size mismatch")
             media = descriptor.get("mediaType", "")
             if "manifest" in media or "index" in media:
-                document = json.loads(raw)
+                document = json.loads(read_tar(archive, blob))
                 pending.extend(document.get("manifests", []))
                 pending.extend(document.get("layers", []))
                 if "config" in document:
@@ -220,10 +243,16 @@ def verify_image_archive(archive):
         raise DistroError("Docker archive contains no images")
     for image in manifest:
         config = read_tar(archive, image["Config"])
-        json.loads(config)
+        configuration = json.loads(config)
         config_digest = Path(image["Config"]).stem
         if re.fullmatch(r"[0-9a-f]{64}", config_digest) and hashlib.sha256(config).hexdigest() != config_digest:
             raise DistroError("Docker configuration digest mismatch")
-        for layer in image.get("Layers", []):
-            read_tar(archive, layer)
-    return ["Docker image manifest, configuration and referenced layers"]
+        layers = image.get("Layers", [])
+        diff_ids = configuration.get("rootfs", {}).get("diff_ids", [])
+        if len(layers) != len(diff_ids):
+            raise DistroError("Docker layer count differs from image configuration")
+        for layer, expected in zip(layers, diff_ids):
+            _, checksum = tar_digest(archive, layer)
+            if expected != "sha256:" + checksum:
+                raise DistroError("Docker uncompressed layer digest mismatch")
+    return ["Docker manifest, configuration and streamed layer digests"]

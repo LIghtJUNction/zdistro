@@ -63,7 +63,7 @@ def matrix(manifest, targets, receipt_root):
                     notes.append(f"{target}/{host}: invalid evidence: {error}")
             cells[host] = cell
         builder = {"crate": "Cargo", "wheel": "PEP 517", "sdist": "PEP 517", "npm": "npm",
-                   "apk": "AAPT2 / Gradle", "aab": "Gradle", "docker": "Docker / Podman"}.get(
+                   "apk": "AAPT2 / Gradle", "aab": "AAPT2 / Gradle", "docker": "Docker / Podman"}.get(
                        target, manifest.data.get("build", {}).get("kind", "none"))
         rows.append({"target": target, "builder": "staged files" if builder == "none" else builder,
                      "description": backend.description, "platforms": cells})

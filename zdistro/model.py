@@ -12,6 +12,7 @@ import re
 import shutil
 import stat
 import string
+import sys
 import tomllib
 
 
@@ -20,7 +21,8 @@ class DistroError(RuntimeError):
 
 
 def host_name():
-    return {"Linux": "linux", "Darwin": "macos", "Windows": "windows"}.get(platform.system(), platform.system().lower())
+    # platform.system() may spawn cmd.exe on Windows; planning needs no subprocess.
+    return {"linux": "linux", "darwin": "macos", "win32": "windows"}.get(sys.platform, sys.platform)
 
 
 def digest(path):
@@ -193,7 +195,8 @@ def stage_files(manifest, config, build_dir, stage, excluded=()):
     rows = []
     for rule in manifest.file_rules(config):
         value = rule["source"]
-        if value.startswith("{build}/"):
+        from_build = value.startswith("{build}/")
+        if from_build:
             source = inside(build_dir, value[len("{build}/"):], "build file")
         else:
             source = inside(manifest.root, value, "source file")
@@ -204,7 +207,7 @@ def stage_files(manifest, config, build_dir, stage, excluded=()):
         for item in paths:
             if item.is_symlink():
                 raise DistroError(f"staging symlinks require an explicit recipe: {item}")
-            if any(item.resolve().is_relative_to(Path(excluded_path).resolve()) for excluded_path in excluded):
+            if not from_build and any(item.resolve().is_relative_to(Path(excluded_path).resolve()) for excluded_path in excluded):
                 raise DistroError("a file rule includes the build output directory; narrow files.source")
             if item.is_dir():
                 continue

@@ -61,6 +61,12 @@ def plan(manifest, target):
                               "{project}/" + config.get("manifest", "AndroidManifest.xml"), "-o", "{artifact}"]]
                             if mode == "aapt2" else [["<project Gradle wrapper or gradle>", "--no-daemon",
                                 config.get("task", "assembleRelease" if target == "apk" else "bundleRelease")]])
+        if target == "aab" and mode == "aapt2":
+            commands[target][0][-1] = "{work}/linked-proto.zip"
+            commands[target][0].append("--proto-format")
+            steps.append({"action": "assemble-android-module", "manifest": "manifest/AndroidManifest.xml",
+                          "resources": "resources.pb and res/", "staged-layout": "dex/, assets/, lib/ or root/"})
+            commands[target].append(["<bundletool>", "build-bundle", "--modules={work}/base.zip", "--output={artifact}"])
     elif target == "docker":
         engine, archive = config.get("engine", "docker"), config.get("archive", "docker")
         commands[target] = ([[engine, "buildx", "build", "--output", "type=" + archive + ",dest={artifact}", "{project}"]]
@@ -145,7 +151,17 @@ def verify_receipt(manifest, receipt_path, timeout=600):
         raise DistroError("artifact size or SHA-256 does not match its receipt")
     with tempfile.TemporaryDirectory(prefix="zdistro-verify-") as directory:
         work = Path(directory)
-        ctx = Context(manifest, target, work, path.parent, manifest.root, work / "build", work / "stage", Runner(timeout), 0)
+        build, stage = work / "build", work / "stage"
+        build.mkdir()
+        stage.mkdir()
+        config = manifest.targets[target]
+        language = manifest.data.get("build", {})
+        project = inside(manifest.root, config.get("project", language.get("project", ".")), "project")
+        if target not in BACKENDS:
+            source = project
+            project = build / "project"
+            copy_project(source, project, excluded=[path.parent])
+        ctx = Context(manifest, target, work, path.parent, project, build, stage, Runner(timeout), 0)
         result = verify_artifact(ctx, artifact)
     return {"artifact": str(artifact), "sha256": data["sha256"], "verification": result}
 

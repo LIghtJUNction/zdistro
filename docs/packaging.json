@@ -1,0 +1,413 @@
+{
+  "schema": 1,
+  "package": "zdistro-example",
+  "version": "0.1.0",
+  "manifest_sha256": "d0e1e0d7c1e5a8ce37c89b2a34031f56e3e500d6dfeb523f92c78fa6d76dbc31",
+  "generated_at": "2026-11-19T23:19:26.695027+00:00",
+  "host": "linux",
+  "rows": [
+    {
+      "target": "deb",
+      "builder": "staged files",
+      "description": "Debian / Ubuntu binary package",
+      "platforms": {
+        "linux": {
+          "status": "verified-native",
+          "label": "Native verified",
+          "sha256": "5a119b02f77e6b571329e28322df71855344df5657e1f37163a587779c0fea98",
+          "checks": [
+            "dpkg-deb metadata identity and payload listing"
+          ],
+          "created_at": "2026-11-19T23:19:07.671000+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "unsupported-host",
+          "label": "—"
+        }
+      }
+    },
+    {
+      "target": "arch",
+      "builder": "staged files",
+      "description": "Arch / ALPM binary package",
+      "platforms": {
+        "linux": {
+          "status": "verified-native",
+          "label": "Native verified",
+          "sha256": "d4e51d35757c9b4bf68893216279360d89df79728abedd13a90271870a93b24f",
+          "checks": [
+            "pacman package inspection",
+            "ALPM .PKGINFO/.BUILDINFO/.MTREE presence"
+          ],
+          "created_at": "2026-11-19T23:19:07.729228+00:00"
+        },
+        "macos": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "windows": {
+          "status": "unsupported-host",
+          "label": "—"
+        }
+      }
+    },
+    {
+      "target": "zip",
+      "builder": "staged files",
+      "description": "portable ZIP archive",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "9a24a731f60f1b6aadbf4856d306a93c07ed61187abbe985db3ea0a6e3f3a9c7",
+          "checks": [
+            "ZIP member boundaries and CRCs"
+          ],
+          "created_at": "2026-11-19T23:19:07.644317+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "tar-gz",
+      "builder": "staged files",
+      "description": "portable gzip tar archive",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "e4968b7b97d3c3ec4a7a2ad0ad37d6233fc3486aa1fb088b4dd8d042304f9536",
+          "checks": [
+            "tar member boundaries and readable archive"
+          ],
+          "created_at": "2026-11-19T23:19:07.650103+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "crate",
+      "builder": "Cargo",
+      "description": "Cargo source package with build verification",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "c81ee7804368c5390a0fdeb0d57f21a4103d71869aaca67661049d02279fed02",
+          "checks": [
+            "tar member boundaries and readable archive",
+            "Cargo-normalized package name and version",
+            "cargo package performed its default unpack-and-build verification"
+          ],
+          "created_at": "2026-11-19T23:19:13.646718+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "wheel",
+      "builder": "PEP 517",
+      "description": "Python wheel through PEP 517",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "102b1133133e61d2ca207fe349cef6ffb94c8b5fd80ae574daf94b5bbaf09d00",
+          "checks": [
+            "ZIP member boundaries and CRCs",
+            "Python metadata and every wheel RECORD digest/size"
+          ],
+          "created_at": "2026-11-19T23:19:14.160133+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "sdist",
+      "builder": "PEP 517",
+      "description": "Python source distribution through PEP 517",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "f6a4e577f90b1d7a2ae2cbfbe0408e983053099d8ef6675f9ae907f2dddd2bec",
+          "checks": [
+            "tar member boundaries and readable archive",
+            "PEP 517 source distribution metadata"
+          ],
+          "created_at": "2026-11-19T23:19:17.042085+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "npm",
+      "builder": "npm",
+      "description": "npm package tarball",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "d24cb2e0e0ed2ab4c0695ad3934aa253c8a270c9cdf09f648fc7929f1969b06b",
+          "checks": [
+            "tar member boundaries and readable archive",
+            "npm package name and version"
+          ],
+          "created_at": "2026-11-19T23:19:19.221339+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "extension",
+      "builder": "staged files",
+      "description": "browser extension upload archive",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "e8f6c570b6eb0957d8ca74f02f13913d41ad4d25e17698eafc3caba7db7e679a",
+          "checks": [
+            "ZIP member boundaries and CRCs",
+            "extension required fields and declared local scripts/pages/icons"
+          ],
+          "created_at": "2026-11-19T23:19:07.661062+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "xpi",
+      "builder": "staged files",
+      "description": "unsigned Firefox extension archive",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "e8f6c570b6eb0957d8ca74f02f13913d41ad4d25e17698eafc3caba7db7e679a",
+          "checks": [
+            "ZIP member boundaries and CRCs",
+            "extension required fields and declared local scripts/pages/icons"
+          ],
+          "created_at": "2026-11-19T23:19:07.666115+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "pkg",
+      "builder": "staged files",
+      "description": "macOS Installer component package",
+      "platforms": {
+        "linux": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "unsupported-host",
+          "label": "—"
+        }
+      }
+    },
+    {
+      "target": "dmg",
+      "builder": "staged files",
+      "description": "macOS read-only disk image",
+      "platforms": {
+        "linux": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "unsupported-host",
+          "label": "—"
+        }
+      }
+    },
+    {
+      "target": "msi",
+      "builder": "staged files",
+      "description": "WiX Windows Installer package",
+      "platforms": {
+        "linux": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "macos": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "msix",
+      "builder": "staged files",
+      "description": "Windows SDK app package",
+      "platforms": {
+        "linux": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "macos": {
+          "status": "unsupported-host",
+          "label": "—"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "apk",
+      "builder": "AAPT2 / Gradle",
+      "description": "Android APK through AAPT2 or Gradle",
+      "platforms": {
+        "linux": {
+          "status": "verified-native",
+          "label": "Native verified",
+          "sha256": "9c3ddac9fca8c1c2ae10ed556df8394365a90758569628244f94b80f34397d87",
+          "checks": [
+            "ZIP member boundaries and CRCs",
+            "AAPT2 parsed binary Android manifest/resources; signing not performed",
+            "Android application ID and version match explicit manifest expectations"
+          ],
+          "created_at": "2026-11-19T23:19:21.004519+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "aab",
+      "builder": "AAPT2 / Gradle",
+      "description": "Android App Bundle through AAPT2/Gradle and bundletool",
+      "platforms": {
+        "linux": {
+          "status": "verified-native",
+          "label": "Native verified",
+          "sha256": "7401db4a56dce7a412c5e99c401eb4d57f5fed3fc2895542a7358db590b845dc",
+          "checks": [
+            "ZIP member boundaries and CRCs",
+            "bundletool validated Android App Bundle modules",
+            "Android application ID and version match explicit manifest expectations"
+          ],
+          "created_at": "2026-11-19T23:19:21.682644+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    },
+    {
+      "target": "docker",
+      "builder": "Docker / Podman",
+      "description": "Docker or OCI image archive",
+      "platforms": {
+        "linux": {
+          "status": "verified-structure",
+          "label": "Integrity verified",
+          "sha256": "be1140fbc04d749ccb70a1cdc13a846e3e737dadf63a05210aac8b816b47cdc6",
+          "checks": [
+            "tar member boundaries and readable archive",
+            "OCI index and recursively referenced blob digests/sizes"
+          ],
+          "created_at": "2026-11-19T23:19:25.042530+00:00"
+        },
+        "macos": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        },
+        "windows": {
+          "status": "native-tools",
+          "label": "Native tools needed"
+        }
+      }
+    }
+  ],
+  "notes": [],
+  "scope": "Build artifact verification; not installation, signatures, store approval or arbitrary software compatibility."
+}

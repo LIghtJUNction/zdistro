@@ -49,7 +49,7 @@ BACKENDS = {item.name: item for item in [
     Backend("msi", ("windows",), ("wix",), ".msi", "WiX Windows Installer package"),
     Backend("msix", ("windows",), ("makeappx",), ".msix", "Windows SDK app package"),
     Backend("apk", ALL_HOSTS, (), ".apk", "Android APK through AAPT2 or Gradle"),
-    Backend("aab", ALL_HOSTS, ("java",), ".aab", "Android App Bundle through Gradle and bundletool"),
+    Backend("aab", ALL_HOSTS, ("java",), ".aab", "Android App Bundle through AAPT2/Gradle and bundletool"),
     Backend("docker", ALL_HOSTS, (), ".tar", "Docker or OCI image archive"),
 ]}
 
@@ -163,12 +163,17 @@ def doctor(manifest, target, probe=False):
         issues.append("missing package.identifier")
     if target == "msix" and not config.get("executable"):
         issues.append("missing targets.msix.executable: staged Windows executable path")
+    if target == "msix" and not re.fullmatch(r"[-.A-Za-z0-9]+", config.get("identity", manifest.package.get("identifier", ""))):
+        issues.append("MSIX identity uses letters/digits/dot/hyphen; set targets.msix.identity for a platform-specific identity")
     if target in ("apk", "aab"):
+        application_id = config.get("application_id", manifest.package.get("identifier", ""))
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", application_id):
+            issues.append(f"missing or invalid targets.{target}.application_id (or explicit package.identifier)")
         if not sdk_root():
             issues.append("missing Android SDK: set ANDROID_HOME or ANDROID_SDK_ROOT to an existing SDK")
         mode = config.get("mode", "aapt2" if target == "apk" else "gradle")
-        if mode not in ("aapt2", "gradle") or (target == "aab" and mode != "gradle"):
-            issues.append("APK mode must be aapt2 or gradle; AAB uses gradle")
+        if mode not in ("aapt2", "gradle"):
+            issues.append("Android mode must be aapt2 or gradle")
         if mode == "aapt2":
             tools["aapt2"] = android_tool("aapt2")
             if not tools["aapt2"]:
@@ -372,7 +377,9 @@ def verify_artifact(ctx, artifact):
         ctx.run(["dpkg-deb", "--contents", artifact])
         return {"level": "native", "checks": ["dpkg-deb metadata identity and payload listing"]}
     if target == "arch":
-        ctx.run(["pacman", "--query", "--info", "--file", artifact])
+        database = ctx.work / "pacman-db"
+        database.mkdir(exist_ok=True)
+        ctx.run(["pacman", "--dbpath", database, "--query", "--info", "--file", artifact])
         names = ctx.run(["bsdtar", "-tf", artifact]).splitlines()
         if not {".PKGINFO", ".BUILDINFO", ".MTREE"} <= {name.removeprefix("./") for name in names}:
             raise DistroError("Arch package lacks mandatory ALPM metadata")

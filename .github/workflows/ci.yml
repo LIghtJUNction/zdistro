@@ -1,8 +1,8 @@
-name: Verify zdistro
+name: Build native zdistro packages
 
 on:
   push:
-  pull_request:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -89,13 +89,20 @@ jobs:
   android-sdk-gate:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      BUNDLETOOL_JAR: ${{ github.workspace }}/.tools/bundletool-all-1.18.3.jar
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - name: Build an actual unsigned APK using the runner's existing SDK
-        run: python tests/native_smoke.py --targets apk --android-gate
+      - name: Provision pinned bundletool without downloading an SDK
+        run: |
+          mkdir -p .tools
+          curl --fail --location --output "$BUNDLETOOL_JAR" https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $BUNDLETOOL_JAR" | sha256sum --check
+      - name: Build actual APK and AAB using the runner's existing SDK
+        run: python tests/native_smoke.py --targets apk,aab --android-gate
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -38,7 +38,8 @@ def initialize(directory, targets, name=None, version="0.1.0"):
         raise DistroError("template name must be a lowercase package name; version must be X.Y.Z")
     if not targets:
         raise DistroError("choose at least one --target")
-    identifier = "dev.projectz." + name.replace("-", "_").replace(".", "_")
+    component = re.sub(r"[^a-z0-9]", "", name)
+    identifier = "dev.projectz." + ("app" if component[0].isdigit() else "") + component
     q = lambda value: json.dumps(value, ensure_ascii=False)
     files = {"payload/hello.txt": f"Hello from {name}.\n"}
     lines = ["# Edit metadata, source paths and per-format settings before distributing.", "schema = 1",
@@ -91,7 +92,8 @@ path = "lib.rs"
                 "description": "A minimal zdistro packaging example", "action": {"default_popup": "popup.html"}}, indent=2) + "\n"
             files["extension/popup.html"] = '<!doctype html><html><meta charset="utf-8"><title>Package example</title><p>Hello from zdistro.</p></html>\n'
         elif target in ("apk", "aab"):
-            lines.extend(['project = "android"', "files = []"])
+            lines.extend(['project = "android"', "files = []", f"application_id = {q(identifier)}",
+                          f"version_name = {q(version)}", 'version_code = "1"'])
             files["android/AndroidManifest.xml"] = f'''<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="{escape(identifier)}" android:versionCode="1" android:versionName="{escape(version)}">
@@ -102,12 +104,12 @@ path = "lib.rs"
             if target == "apk":
                 lines.extend(['mode = "aapt2"', 'manifest = "AndroidManifest.xml"', '# Optional: resources = "res"'])
             else:
-                lines.extend(['mode = "gradle"', 'task = ":app:bundleRelease"',
-                              'artifact = "app/build/outputs/bundle/release/app-release.aab"',
+                lines.extend(['mode = "aapt2"', 'manifest = "AndroidManifest.xml"',
                               '# bundletool_jar = "/path/to/bundletool-all.jar"'])
                 files["android/README.md"] = ("# Android source\n\nThe APK example packages a no-code Android manifest with an installed AAPT2 and SDK platform.\n"
-                    "For AAB, point targets.aab.project at your real Gradle Android app with its wrapper,\n"
-                    "select its task/output, and provide bundletool. No SDK or Gradle wrapper is downloaded by init.\n")
+                    "AAB uses AAPT2 protobuf output and bundletool to build and validate a real App Bundle.\n"
+                    "For an existing Gradle app, select mode=gradle, its project/task/artifact, and provide bundletool.\n"
+                    "No SDK or Gradle wrapper is downloaded by init.\n")
         elif target == "msix":
             lines.extend(['architecture = "x64"', 'executable = "app.exe"', 'publisher = "CN=Package Publisher"',
                           'files = [{source = "payload/app.exe", destination = "app.exe"}]'])

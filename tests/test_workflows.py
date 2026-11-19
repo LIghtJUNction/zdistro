@@ -112,6 +112,38 @@ verify = [["{python}", "-c", "from pathlib import Path; import sys; assert Path(
         self.assertEqual(result["verification"]["level"], "recipe")
         self.assertEqual(Path(result["artifact"]).read_bytes(), b"CUSTOM")
 
+    def test_language_builder_output_flows_into_staging_and_archive(self):
+        source = self.path.read_text().replace('kind = "none"', '''kind = "command"
+commands = [["{python}", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text('built')", "{build}/made.txt"]]''')
+        source = source.replace('[targets.zip]', '[targets.zip]\nfiles = [{source = "{build}/made.txt", destination = "made.txt"}]')
+        self.path.write_text(source)
+        result = build_one(Manifest.load(self.path), "zip", self.output)
+        with zipfile.ZipFile(result["artifact"]) as archive:
+            self.assertEqual(archive.read("made.txt"), b"built")
+        self.assertFalse((self.root / "made.txt").exists())
+
+    def test_nested_recipe_project_reverifies_in_an_isolated_copy(self):
+        app = self.root / "app"
+        app.mkdir()
+        (app / "verify.py").write_text(
+            "from pathlib import Path; import sys\n"
+            "assert Path(sys.argv[1]).read_bytes() == b'CUSTOM'\n"
+            "Path('private-verifier-marker').write_text('ok')\n", encoding="utf-8")
+        with self.path.open("a", encoding="utf-8") as stream:
+            stream.write('''
+[targets.nested]
+project = "app"
+files = []
+[recipes.nested]
+artifact = "result.bin"
+build = [["{python}", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_bytes(b'CUSTOM')", "{artifact}"]]
+verify = [["{python}", "{project}/verify.py", "{artifact}"]]
+''')
+        manifest = Manifest.load(self.path)
+        built = build_one(manifest, "nested", self.output)
+        self.assertEqual(verify_receipt(manifest, built["receipt"])["verification"]["level"], "recipe")
+        self.assertFalse((app / "private-verifier-marker").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

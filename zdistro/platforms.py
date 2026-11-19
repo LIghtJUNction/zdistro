@@ -7,6 +7,7 @@ import csv
 import io
 import json
 from pathlib import Path
+import shlex
 import shutil
 import struct
 import uuid
@@ -87,7 +88,7 @@ def msix_manifest(ctx):
         "xmlns:rescap": "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities",
         "IgnorableNamespaces": "uap rescap"})
     version = config.get("version", package["version"] + ".0" if package["version"].count(".") == 2 else package["version"])
-    ET.SubElement(root, "Identity", Name=package["identifier"], Publisher=config.get("publisher", "CN=Package Publisher"),
+    ET.SubElement(root, "Identity", Name=config.get("identity", package["identifier"]), Publisher=config.get("publisher", "CN=Package Publisher"),
                   Version=version, ProcessorArchitecture=config.get("architecture", "x64"))
     properties = ET.SubElement(root, "Properties")
     for key, value in (("DisplayName", package["name"]), ("PublisherDisplayName", package.get("maintainer", package["name"])),
@@ -105,7 +106,7 @@ def msix_manifest(ctx):
 
 
 def build_platform(ctx, artifact):
-    from .backends import android_platform, android_tool, windows_tool
+    from .backends import android_platform, android_tool, bundletool_command, windows_tool
     target, config, package = ctx.target, ctx.config, ctx.package
     if target == "pkg":
         ctx.run(["pkgbuild", "--root", ctx.stage, "--identifier", package["identifier"],
@@ -122,15 +123,28 @@ def build_platform(ctx, artifact):
         mode = config.get("mode", "aapt2" if target == "apk" else "gradle")
         if mode == "aapt2":
             aapt2 = android_tool("aapt2")
+            linked = artifact if target == "apk" else ctx.work / "linked-proto.zip"
             argv = [aapt2, "link", "-I", android_platform(config), "--manifest",
                     inside(ctx.project, config.get("manifest", "AndroidManifest.xml")),
-                    "-o", artifact, "--auto-add-overlay"]
+                    "-o", linked, "--auto-add-overlay"]
+            if target == "aab":
+                argv.append("--proto-format")
             if config.get("resources"):
                 compiled = ctx.work / "resources.zip"
                 ctx.run([aapt2, "compile", "--dir", inside(ctx.project, config["resources"]), "-o", compiled])
                 argv.extend(["-R", compiled])
             ctx.run(argv)
-            with zipfile.ZipFile(artifact, "a", compression=zipfile.ZIP_DEFLATED) as archive:
+            if target == "aab":
+                module = ctx.work / "base.zip"
+                with zipfile.ZipFile(linked) as original, zipfile.ZipFile(module, "x", compression=zipfile.ZIP_DEFLATED) as base:
+                    for name in original.namelist():
+                        destination = "manifest/AndroidManifest.xml" if name == "AndroidManifest.xml" else name
+                        with original.open(name) as source, base.open(destination, "w") as output:
+                            shutil.copyfileobj(source, output)
+                packaged = module
+            else:
+                packaged = artifact
+            with zipfile.ZipFile(packaged, "a", compression=zipfile.ZIP_DEFLATED) as archive:
                 names = set(archive.namelist())
                 for file in sorted(ctx.stage.rglob("*")):
                     if file.is_file():
@@ -138,6 +152,8 @@ def build_platform(ctx, artifact):
                         if name in names:
                             raise DistroError(f"staged APK file collides with AAPT2 output: {name}")
                         archive.write(file, name)
+            if target == "aab":
+                ctx.run([*bundletool_command(config), "build-bundle", f"--modules={module}", f"--output={artifact}"])
         else:
             wrapper = ctx.project / ("gradlew.bat" if host_name() == "windows" else "gradlew")
             executable = str(wrapper) if wrapper.is_file() else "gradle"
@@ -173,6 +189,7 @@ def verify_platform(ctx, artifact):
     from .backends import android_tool, bundletool_command, windows_tool
     target = ctx.target
     checks = []
+    identity = None
     if target in ("msix", "apk", "aab"):
         checks.extend(verify_portable(target, artifact, ctx.package)["checks"])
     if target == "pkg":
@@ -189,12 +206,31 @@ def verify_platform(ctx, artifact):
         ctx.run([windows_tool("makeappx"), "unpack", "/p", artifact, "/d", ctx.work / "msix-expanded"])
         checks.append("MakeAppx native unpack; package is unsigned")
     elif target == "apk":
-        ctx.run([android_tool("aapt2"), "dump", "badging", artifact])
+        badging = ctx.run([android_tool("aapt2"), "dump", "badging", artifact])
+        package_line = next((line for line in badging.splitlines() if line.startswith("package: ")), "")
+        fields = dict(item.split("=", 1) for item in shlex.split(package_line)[1:] if "=" in item)
+        identity = {"application_id": fields.get("name"), "version_name": fields.get("versionName"),
+                    "version_code": fields.get("versionCode")}
         checks.append("AAPT2 parsed binary Android manifest/resources; signing not performed")
     elif target == "aab":
         command = bundletool_command(ctx.config)
         if not command:
             raise DistroError("bundletool is required for AAB verification")
         ctx.run([*command, "validate", f"--bundle={artifact}"])
+        manifest = ET.fromstring(ctx.run([*command, "dump", "manifest", f"--bundle={artifact}", "--module=base"]))
+        android = "{http://schemas.android.com/apk/res/android}"
+        identity = {"application_id": manifest.get("package"), "version_name": manifest.get(android + "versionName"),
+                    "version_code": manifest.get(android + "versionCode")}
         checks.append("bundletool validated Android App Bundle modules")
-    return {"level": "native", "checks": checks}
+    result = {"level": "native", "checks": checks}
+    if identity is not None:
+        expected = {"application_id": ctx.config.get("application_id", ctx.package.get("identifier")),
+                    "version_name": ctx.config.get("version_name", ctx.package["version"])}
+        if "version_code" in ctx.config:
+            expected["version_code"] = str(ctx.config["version_code"])
+        for key, value in expected.items():
+            if not value or identity[key] != value:
+                raise DistroError(f"Android {key} differs from manifest: expected {value!r}, artifact contains {identity[key]!r}")
+        checks.append("Android application ID and version match explicit manifest expectations")
+        result["identity"] = identity
+    return result
