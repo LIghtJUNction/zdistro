@@ -38,7 +38,7 @@ def initialize(directory, targets, name=None, version="0.1.0"):
         raise DistroError("template name must be a lowercase package name; version must be X.Y.Z")
     if not targets:
         raise DistroError("choose at least one --target")
-    identifier = "dev.projectz." + name.replace("-", "_").replace(".", "_")
+    identifier = "dev.projectz." + re.sub(r"[-_.]+", ".", name)
     q = lambda value: json.dumps(value, ensure_ascii=False)
     files = {"payload/hello.txt": f"Hello from {name}.\n"}
     lines = ["# Edit metadata, source paths and per-format settings before distributing.", "schema = 1",
