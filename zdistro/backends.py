@@ -297,6 +297,7 @@ def native_build(ctx):
         if metadata.exists():
             raise DistroError("DEBIAN is reserved for generated package metadata")
         metadata.mkdir(mode=0o755)
+        metadata.chmod(0o755)  # mkdir mode is otherwise restricted by the caller\'s umask
         fields = {"Package": package["name"], "Version": package["version"],
                   "Architecture": text(config.get("architecture"), "Debian architecture", "all"),
                   "Maintainer": package["maintainer"], "Description": package["description"],
@@ -306,6 +307,7 @@ def native_build(ctx):
         if package.get("homepage"):
             fields["Homepage"] = package["homepage"]
         (metadata / "control").write_text("".join(f"{key}: {text(value, key)}\n" for key, value in fields.items()), encoding="utf-8")
+        (metadata / "control").chmod(0o644)
         ctx.run(["dpkg-deb", "--root-owner-group", "--build", ctx.stage, artifact])
     elif target == "arch":
         if any((ctx.stage / name).exists() for name in (".PKGINFO", ".BUILDINFO", ".MTREE", ".INSTALL")):
