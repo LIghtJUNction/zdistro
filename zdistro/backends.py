@@ -372,7 +372,10 @@ def verify_artifact(ctx, artifact):
         ctx.run(["dpkg-deb", "--contents", artifact])
         return {"level": "native", "checks": ["dpkg-deb metadata identity and payload listing"]}
     if target == "arch":
-        ctx.run(["pacman", "--query", "--info", "--file", artifact])
+        # Query ALPM metadata with a private database; Ubuntu runners do not have /var/lib/pacman.
+        dbpath = ctx.work / "pacman-db"
+        dbpath.mkdir(exist_ok=True)
+        ctx.run(["pacman", "--dbpath", dbpath, "--query", "--info", "--file", artifact])
         names = ctx.run(["bsdtar", "-tf", artifact]).splitlines()
         if not {".PKGINFO", ".BUILDINFO", ".MTREE"} <= {name.removeprefix("./") for name in names}:
             raise DistroError("Arch package lacks mandatory ALPM metadata")
