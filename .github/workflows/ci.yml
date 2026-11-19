@@ -21,3 +21,83 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m unittest discover -s tests -v
+
+  linux-packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_BUILD_JOBS: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install packaging tools in the disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes makepkg pacman-package-manager libarchive-tools fakeroot
+          python -m pip install build
+      - name: Build real Linux, language, extension and container artifacts
+        run: python tests/native_smoke.py --targets deb,arch,zip,tar-gz,crate,wheel,sdist,npm,extension,xpi,docker --android-gate
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: zdistro-linux-artifacts
+          path: dist/acceptance/
+
+  macos-packages:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Build and inspect native macOS packages
+        run: python tests/native_smoke.py --targets pkg,dmg,zip,tar-gz,extension,xpi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: zdistro-macos-artifacts
+          path: dist/acceptance/
+
+  windows-packages:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      DOTNET_ROLL_FORWARD: Major
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install pinned WiX in the workspace
+        shell: pwsh
+        run: |
+          dotnet tool install --tool-path .tools wix --version 5.0.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "$((Get-Location).Path)\.tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build MSI and MSIX with native Windows tools
+        run: python tests/native_smoke.py --targets msi,msix,zip,tar-gz,extension,xpi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: zdistro-windows-artifacts
+          path: dist/acceptance/
+
+  android-sdk-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Build an actual unsigned APK using the runner's existing SDK
+        run: python tests/native_smoke.py --targets apk --android-gate
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: zdistro-android-artifacts
+          path: dist/acceptance/

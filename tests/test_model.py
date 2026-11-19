@@ -25,14 +25,14 @@ class ManifestTests(unittest.TestCase):
         self.root = Path(temporary.name)
         (self.root / "zdistro.toml").write_text(BASE)
         (self.root / "payload").mkdir()
-        (self.root / "payload/hello.txt").write_text("hello 世界\n")
+        (self.root / "payload/hello.txt").write_text("hello 世界\n", encoding="utf-8")
 
     def test_staging_keeps_names_content_and_permissions(self):
         manifest = Manifest.load(self.root / "zdistro.toml")
         stage = self.root / "stage"
         rows = stage_files(manifest, {}, self.root / "build", stage)
         self.assertEqual([row["path"] for row in rows], ["usr/share/test/hello.txt"])
-        self.assertEqual((stage / rows[0]["path"]).read_text(), "hello 世界\n")
+        self.assertEqual((stage / rows[0]["path"]).read_text(encoding="utf-8"), "hello 世界\n")
         self.assertEqual(len(rows[0]["sha256"]), 64)
 
     def test_path_traversal_and_windows_absolute_paths_are_rejected(self):
