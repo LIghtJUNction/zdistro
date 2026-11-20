@@ -214,13 +214,30 @@ def doctor(manifest, target, probe=False):
             issues.append("docker engine must be docker or podman")
         if config.get("archive", "docker") not in ("docker", "oci"):
             issues.append("container archive must be docker or oci")
+        builder = config.get("builder")
+        if builder is not None and (not isinstance(builder, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", builder)):
+            issues.append("targets.docker.builder must be a Buildx builder name")
+            builder = None
+        if builder is not None and engine != "docker":
+            issues.append("targets.docker.builder applies only to Docker Buildx")
         if probe and tool(engine):
             try:
                 Runner(timeout=15).run([engine, "info", "--format", "json"], manifest.root)
                 if engine == "docker":
-                    Runner(timeout=15).run([engine, "buildx", "version"], manifest.root)
+                    details = Runner(timeout=15).run(
+                        [engine, "buildx", "inspect", *([builder] if builder else [])], manifest.root,
+                        {"LC_ALL": "C"})
+                    driver = re.search(r"(?m)^Driver:\s*(\S+)", details)
+                    snapshotter = re.search(r"(?m)^\s*org\.mobyproject\.buildkit\.worker\.snapshotter:", details)
+                    if not driver:
+                        issues.append("cannot determine the selected Docker Buildx driver")
+                    elif driver.group(1) == "docker" and not snapshotter:
+                        issues.append("selected Docker driver cannot export Docker/OCI archives; create a docker-container "
+                                      "builder and set targets.docker.builder (see docs/formats.md#containers)")
             except DistroError as error:
                 issues.append(f"container engine is unavailable: {error}")
+        elif engine == "docker":
+            warnings.append("doctor/build probes the selected Buildx driver's archive support; plan does not start tools")
     if target in ("pkg", "dmg", "msi", "msix", "xpi"):
         warnings.append("unsigned build; installation, signing and store approval are separate checks")
     return {"target": target, "host": host_name(), "ready": not issues, "issues": issues,
@@ -330,8 +347,11 @@ def native_build(ctx):
             lines.append("depends=(" + " ".join(q(item) for item in string_list(config["depends"], "Arch depends")) + ")")
         lines.extend(["package() {", f"  cp -a -- {q(str(ctx.stage))}/. \"$pkgdir/\"", "}", ""])
         (recipe / "PKGBUILD").write_text("\n".join(lines), encoding="utf-8")
+        makepkg_build = ctx.build / "makepkg"
+        makepkg_build.mkdir()
         ctx.run(["makepkg", "--nodeps", "--nocheck", "--nosign", "--nocolor"], recipe,
-                {"PKGDEST": str(ctx.out), "PKGEXT": ".pkg.tar.gz", "PACKAGER": package["maintainer"]})
+                {"PKGDEST": str(ctx.out), "PKGEXT": ".pkg.tar.gz", "PACKAGER": package["maintainer"],
+                 "BUILDDIR": str(makepkg_build)})
         artifacts = list(ctx.out.glob("*.pkg.tar.gz"))
         if len(artifacts) != 1:
             raise DistroError("makepkg did not produce exactly one package")

@@ -69,7 +69,8 @@ def plan(manifest, target):
             commands[target].append(["<bundletool>", "build-bundle", "--modules={work}/base.zip", "--output={artifact}"])
     elif target == "docker":
         engine, archive = config.get("engine", "docker"), config.get("archive", "docker")
-        commands[target] = ([[engine, "buildx", "build", "--output", "type=" + archive + ",dest={artifact}", "{project}"]]
+        builder = ["--builder", config["builder"]] if config.get("builder") else []
+        commands[target] = ([[engine, "buildx", "build", *builder, "--output", "type=" + archive + ",dest={artifact}", "{project}"]]
                             if engine == "docker" else
                             [[engine, "build", "--tag", "<unique local build tag>", "{project}"],
                              [engine, "save", "--output", "{artifact}", "<unique local build tag>"],

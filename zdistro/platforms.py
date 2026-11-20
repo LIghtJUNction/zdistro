@@ -170,9 +170,10 @@ def build_platform(ctx, artifact):
         tag = f"zdistro-local/{package['name'].lower()}:{uuid.uuid4().hex}"
         flags = ["--platform", config["platform"]] if config.get("platform") else []
         if engine == "docker":
+            builder = ["--builder", config["builder"]] if config.get("builder") else []
             output = io.StringIO()
             csv.writer(output, lineterminator="").writerow(["type=" + layout, "dest=" + str(artifact)])
-            ctx.run([engine, "buildx", "build", "--file", dockerfile, *flags,
+            ctx.run([engine, "buildx", "build", *builder, "--file", dockerfile, *flags,
                      "--output", output.getvalue(), ctx.project], ctx.project)
         else:
             ctx.run([engine, "build", "--file", dockerfile, "--tag", tag, *flags, ctx.project], ctx.project)

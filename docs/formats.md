@@ -42,7 +42,8 @@ uses `--nodeps` because language builds and their tool checks have already been
 performed before staging; declared runtime dependencies remain in the package.
 No dependencies are installed into the host. `makepkg` requires an unprivileged
 user. The output uses `.pkg.tar.gz`, a native makepkg-supported compression
-choice. See [makepkg](https://man.archlinux.org/man/makepkg.8.en),
+choice. `BUILDDIR` is confined to this build's private directory, overriding
+host-wide temporary-build settings without changing them. See [makepkg](https://man.archlinux.org/man/makepkg.8.en),
 [ALPM package contents](https://man.archlinux.org/man/alpm-package.7.en) and
 [PKGINFO](https://man.archlinux.org/man/PKGINFO.5.en).
 
@@ -134,8 +135,33 @@ checks; the contract tests also exercise the missing-SDK failure. See [Android c
 ## Containers
 
 Docker uses an explicit Buildx `docker` or `oci` exporter to write an archive.
-This works with builders that keep results only in their build cache unless an
-output is requested. OCI export needs an OCI-capable Buildx driver. Podman builds
+Both formats need a driver that supports archive export, such as
+`docker-container`. The classic `docker` driver lacks these exporters unless
+its worker reports the containerd snapshotter. `doctor` inspects the selected
+builder without bootstrapping or creating it and reports the missing capability
+before a build begins. You can create a dedicated builder once:
+
+```sh
+docker buildx create --name zdistro-packages --driver docker-container
+```
+
+Select it explicitly in the manifest; the global default builder stays unchanged:
+
+```toml
+[targets.docker]
+project = "container"
+engine = "docker"
+builder = "zdistro-packages"
+archive = "oci"
+files = []
+```
+
+When `builder` is omitted, Docker's existing selection, including
+`BUILDX_BUILDER`, applies. The formal Linux workflow creates and removes its own
+builder in the disposable runner. See [Docker/OCI exporters](https://docs.docker.com/build/exporters/oci-docker/)
+and [Buildx inspection](https://docs.docker.com/reference/cli/docker/buildx/inspect/).
+
+Podman builds
 a unique local image, saves the selected archive format and removes only that
 build's unique tag. No image is pushed to a registry by the backend.
 
